@@ -68,6 +68,8 @@ C e.g., !40, !000040, and !A0040 are alle equivalent.
 C
 C
 C Version history:
+C 2024-05-19 Write information of successful call to file and
+C            re-use it for exclusion without specified A-number
 C 2020-10-02 Optional input of excluded sequence A-number
 C 2020-10-01 Improved comments
 C 2020-09-28 Revised output
@@ -89,17 +91,19 @@ C and gcd-reduction: w.
 C activation switches: v
 C 8 byte integers:
       integer*8 s(m), t(500), offset(noff), z(500), gcd(noff), gcda
-     &          , w(m,noff)
+     &          , w(m,noff), timprv, timnow
 C 16 byte floats to read data from file "stripped"
       real*16 r(500), rvalue
 C Lines in file "stripped" are assumed not to exceed 500 characters
-      character cline*(lcline), aline*500, c*1
+      character cline*(lcline), aline*500, c*1, prefil*23
 C Type of comparison functions
-      logical matchr, matchi, v(noff)
+      logical matchr, matchi, v(noff), pexist, axclud
 C Source code of comparison functions at end of this file
       external matchr, matchi
 C List of offsets used as addends to input items
       data offset / 0,0, 1,1, -1,-1, 2,2, -2,-2 /
+C Name of file with information from the preceding call
+      prefil = 'prev_call_oeisearch.txt'
 C Preset activation switches to "only items as supplied"
       v = .false.
       v(1) = .true.
@@ -129,9 +133,27 @@ C enable reading by Fortran's list directed input
 C extract optional excluded A-number
       i = index(cline, '!')
       naex = 0
+      axclud = .false.
       if ( i .ne. 0 ) then
-        j = max(1,index(cline(i:), 'A' ))
-        read ( cline(i+j:),*,iostat=ios) naex
+C check whether ! is the last character in input
+        if (len_trim(cline(1:lcline-1)) .eq. i ) then
+C try to read A-number found in previous call
+          timnow = time8()
+          inquire (file=prefil, exist=pexist)
+          if (pexist) then
+            open (unit=9, file=prefil, form='formatted', status='old')
+            read (9,*) timprv, nax
+            close (unit=9,status='delete')
+            if (timnow-timprv .lt. 120) then
+              naex = nax
+              axclud = .true.
+              ios = 0
+            endif
+          endif
+        else
+          j = max(1,index(cline(i:), 'A' ))
+          read ( cline(i+j:),*,iostat=ios) naex
+        endif
 C replace "!" by another termination character to stop reading
 C of search item list at this point
         cline(i:i) = '/'
@@ -241,6 +263,7 @@ C not understood
       read (10,1000,end=200) aline
       read (aline,'(1X,i6.6)') numa
 c      if ( numa .gt. 2) stop
+      if (axclud .and. numa .le. naex) goto 100
       lastc = index ( aline, ',', .true. )
       aline(lastc:lastc) = '/'
 C preset terms before list directed read
@@ -284,6 +307,7 @@ C t: list of divided terms
       read (10,1000,end=290) aline
       read (aline,*,end=211,err=211) numa, gcda, j, (t(k),k=1,j)
 211   continue
+      if (axclud .and. numa .le. naex) goto 210
 C      write (*,*) numa, gcda, jj, (t(k),k=1,j)
       do 201 nof = 1, noff
       if ( v(nof) ) then
@@ -313,6 +337,7 @@ C skip header line
       read (10,1000,end=390) aline
       read (aline,*,end=311,err=311) numa, gcda, j, (t(k),k=1,j)
 311   continue
+      if (axclud .and. numa .le. naex) goto 310
 c      write (99,'(i6.6, 2(1x,i0))') numa,gcda,j
 C      write (*,*) numa, gcda, jj, (t(k),k=1,j)
       do 301 nof = 1, noff
@@ -342,6 +367,7 @@ C skip header line
       read (10,1000,end=490) aline
       read (aline,*,end=411,err=411) numa, gcda, j, (t(k),k=1,j)
 411   continue
+      if (axclud .and. numa .le. naex) goto 410
 c      write (99,'(i6.6, 2(1x,i0))') numa,gcda,j
       do 401 nof = 1, noff
       if ( v(nof) ) then
@@ -363,6 +389,9 @@ C        write (*,1006) nof, offset(nof), gcd(nof), w(1:n,nof)
       if ( numa .gt. 0 .and. numa .ne. naex ) then
         write (*,1900) numa
 1900    format ( 'URL: https://oeis.org/A', i6.6, /, 'End of search' )
+C Write information on success to file
+        open (unit=9, file=prefil, form='formatted', status='unknown')
+        write (9,*) time8(), numa
       endif
 C End of main program
       end
