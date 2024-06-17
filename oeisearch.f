@@ -68,6 +68,9 @@ C e.g., !40, !000040, and !A0040 are alle equivalent.
 C
 C
 C Version history:
+C 2024-06-15 Include information in which part of the search
+C            a hit was found in prev_call file and use for
+C            continuation after a search with exclusion
 C 2024-05-19 Write information of successful call to file and
 C            re-use it for exclusion without specified A-number
 C 2020-10-02 Optional input of excluded sequence A-number
@@ -134,6 +137,7 @@ C extract optional excluded A-number
       i = index(cline, '!')
       naex = 0
       axclud = .false.
+      nhitin = 0
       if ( i .ne. 0 ) then
 C check whether ! is the last character in input
         if (len_trim(cline(1:lcline-1)) .eq. i ) then
@@ -142,10 +146,11 @@ C try to read A-number found in previous call
           inquire (file=prefil, exist=pexist)
           if (pexist) then
             open (unit=9, file=prefil, form='formatted', status='old')
-            read (9,*) timprv, nax
+            read (9,*) timprv, nax, nhit
             close (unit=9,status='delete')
             if (timnow-timprv .lt. 120) then
               naex = nax
+              nhitin = nhit
               axclud = .true.
               ios = 0
             endif
@@ -239,7 +244,7 @@ C End of input processing
 C
       write (*,*) ' '
 C      if ( s(1) .gt. 0 ) stop
-C
+      if ( nhitin .gt. 0 ) goto 109
 C Start of search in file "stripped"
       open (unit=10,file='stripped',form='formatted',
      &      status='old',iostat=ios)
@@ -279,15 +284,23 @@ C        write (*,1006) nof, offset(nof), gcd(nof), w(1:n,nof)
 1100    format ( 'Input #', i0,': match found in A', i6.6,
      &   ' at position ', i0 )
 C Termination after first match
-        if (numa .ne. naex) goto 900
+        if (numa .ne. naex) then
+          nhit = 0
+          goto 900
+        endif
       endif
       endif
 101   continue
       goto 100
 200   continue
 C
-      write (*,*) 'No success in untransformed OEIS'
+      if (nhitin .eq. 0) then
+        write (*,*) 'No success in untransformed OEIS'
+        naex = 0
+      endif
       close (unit=10)
+109   continue      
+      if ( nhitin .gt. 1 ) goto 209
 C
 C Continuation of search in GCD-reduced DATA
 C
@@ -316,14 +329,22 @@ C        write (*,1006) nof, offset(nof), gcd(nof), w(1:n,nof)
         write (*,1200) nof, numa, gcda, nrel
 1200    format ( 'Input #', i0,': match found in A', i6.6,
      &           ' / ',i0, ' at position ', i0 )
-        if (numa .ne. naex) goto 900
+        if (numa .ne. naex) then
+          nhit = 1
+          goto 900
+        endif
       endif
       endif
 201   continue
       goto 210
 290   continue
-      write (*,*) 'No success in GCD-reduced OEIS'
+c      if ( nhitin .gt. 0 ) then
+        write (*,*) 'No success in GCD-reduced OEIS'
+        if (nhitin .eq. 1 ) naex = 0
+c      endif
       close (unit=10)
+209   continue
+      if ( nhitin .gt. 2 ) goto 309
 C
 C continue search using GCD-reduced numbers obtained by application
 C of offset +1 to all OEIS DATA
@@ -347,14 +368,24 @@ C        write (*,1006) nof, offset(nof), gcd(nof), w(1:n,nof)
         write (*,1300) nof, numa, gcda, nrel
 1300    format ( 'Input #', i0,': match found in (A', i6.6,
      &           ' + 1) / ',i0, ' at position ', i0 )
-        if (numa .ne. naex) goto 900
+        if (numa .ne. naex) then
+          nhit = 2
+          goto 900
+        endif
       endif
       endif
 301   continue
       goto 310
 390   continue
-      write (*,*) 'No success in GCD-reduced OEIS + 1'
+c      if ( nhitin .eq. 0 ) then
+        write (*,*) 'No success in GCD-reduced OEIS + 1'
+        if ( nhitin .eq. 2 ) naex = 0
+c      endif
       close (unit=10)
+C
+309   continue
+C
+      if ( nhitin .gt. 3 ) goto 409
 C
 C Search in GCD-reduced "OEIS-1" DATA
 C
@@ -376,14 +407,20 @@ C        write (*,1006) nof, offset(nof), gcd(nof), w(1:n,nof)
         write (*,1400) nof, numa, gcda, nrel
 1400    format ( 'Input #', i0, ': match found in (A', i6.6,
      &           ' - 1) / ',i0, ' at position ', i0 )
-        if (numa .ne. naex) goto 900
+        if (numa .ne. naex) then
+          nhit = 3
+          goto 900
+        endif
       endif
       endif
 401   continue
       goto 410
 490   continue
-      write (*,*) 'No success in GCD-reduced OEIS - 1'
+c      if ( nhitin .eq. 0 ) then
+        write (*,*) 'No success in GCD-reduced OEIS - 1'
+c      endif
       close (unit=10)
+409   continue
       numa = 0
 900   continue
       if ( numa .gt. 0 .and. numa .ne. naex ) then
@@ -391,7 +428,7 @@ C        write (*,1006) nof, offset(nof), gcd(nof), w(1:n,nof)
 1900    format ( 'URL: https://oeis.org/A', i6.6, /, 'End of search' )
 C Write information on success to file
         open (unit=9, file=prefil, form='formatted', status='unknown')
-        write (9,*) time8(), numa
+        write (9,*) time8(), numa, nhit
       endif
 C End of main program
       end
