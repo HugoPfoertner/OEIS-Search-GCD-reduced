@@ -4,10 +4,9 @@ Program oeisearch
 Author: Hugo Pfoertner http://www.pfoertner.org/
 
 This file is stored at
-https://github.com/HugoPfoertner/OEIS-Search-GCD-reduced/blob/main/oeisearch_readme.txt
+http://www.randomwalk.de/sequences/oeisearch_readme.txt
 
-Update 2022-11-23: Project moved to GitHub
-Date of initial version: 2020-10-13
+Date of last change: 2020-10-13
 
 Purpose
 =======
@@ -87,14 +86,14 @@ Symbolic links to the files in Linux systems will also work.
 For 64-bit Windows environments, a precompiled executable is available.
 It can either be copied directly from
 
-https://github.com/HugoPfoertner/OEIS-Search-GCD-reduced/blob/main/oeisearch.exe
+http://www.randomwalk.de/sequences/oeisearch.exe
 
 or, if firewalls or other protection measures inhibit a direct download, the
 executable is part of a protected zip archive, where the executable
 is renamed to oeisearch._exe, to be renamed after unpacking.
 The zip archive is available at
 
-https://github.com/HugoPfoertner/OEIS-Search-GCD-reduced/blob/main/oeisearch_wex.zip
+http://www.randomwalk.de/sequences/oeisearch_wex.zip
 
 The p a s s w o r d needed for unpacking of the archive is O..S,
 with an obvious replacement of "..".
@@ -104,7 +103,7 @@ oeiseach can also be compiled from its source, which is available either
 as part of the archive cited above, or, if the Windows executable is
 not needed, from
 
-https://github.com/HugoPfoertner/OEIS-Search-GCD-reduced/blob/main/oeisearch.zip
+http://www.randomwalk.de/sequences/oeisearch.zip
 
 In non-Windows environments the compilation from the source is mandatory.
 
@@ -121,17 +120,17 @@ https://oeis.org/stripped.gz
 
 It has to be unpacked by a suitable tool, e.g. 7-Zip and many others in Windows,
 or gunzip on Linux.
-The size of the unpacked file "stripped" is currently (Nov 2022) about 69 MBytes.
+The size of the unpacked file "stripped" is currently (Oct 2020) about 66 MBytes.
 
 To perform the "GCD-reduced" search, the following
 3 additional files are needed:
 
 gcd0.txt, gcdminus1.txt, gcdplus1.txt
 
-The files (size ~ 9 MBytes each) may either be downloaded from
-https://github.com/HugoPfoertner/OEIS-Search-GCD-reduced/blob/main/gcd0.txt
-https://github.com/HugoPfoertner/OEIS-Search-GCD-reduced/blob/main/gcdminus1.txt
-https://github.com/HugoPfoertner/OEIS-Search-GCD-reduced/blob/main/gcdplus1.txt
+The files (size ~ 9 MByte each) may either be downloaded from
+http://www.randomwalk.de/sequences/gcd0.txt
+http://www.randomwalk.de/sequences/gcdminus1.txt
+http://www.randomwalk.de/sequences/gcdplus1.txt
 
 or they can be created by an auxiliary program gcdoeis that uses "stripped"
 as input. The stored files are currently only updated on an occasional basis,
@@ -159,7 +158,7 @@ but may be discarded.
 The file stripped_stats.txt, which shows the number of data items per A-number
 and counts of minus signs, is also available at
 
-https://github.com/HugoPfoertner/OEIS-Search-GCD-reduced/blob/main/stripped_stats.txt
+http://www.randomwalk.de/sequences/stripped_stats.txt
 
 The size of the gcd*.txt files is about 8-9 MBytes each, the other information files
 are of similar size or less.
@@ -307,7 +306,7 @@ End of search
 License
 =======
 
-Copyright 2020, 2022 Hugo Pfoertner
+Copyright 2020 Hugo Pfoertner
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
