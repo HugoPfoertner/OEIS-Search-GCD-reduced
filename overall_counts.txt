@@ -1,0 +1,14 @@
+# OEIS Sequence Data (http://oeis.org/stripped.gz)
+# Last Modified: July 13 04:53 UTC 2025
+A numbers:
+385531
+Numbers
+16993704
+Negative numbers:
+353686
+Zeros:
+1065225
+Ones:
++-1:     1532851
+ -1:       75446
+ +1:     1457405
