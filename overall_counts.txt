@@ -1,14 +1,16 @@
 # OEIS Sequence Data (http://oeis.org/stripped.gz)
-# Last Modified: July 28 04:54 UTC 2025
+# Last Modified: August  3 05:00 UTC 2025
 A numbers:
-386224
+386382
 Numbers
-17028639
+17037518
 Negative numbers:
-353896
+353956
 Zeros:
-1066576
+1067236
 Ones:
- +-1:     1535710
-  -1:       75496
-  +1:     1460214
+ +-1:     1536437
+  -1:       75497
+  +1:     1460940
+
+   
