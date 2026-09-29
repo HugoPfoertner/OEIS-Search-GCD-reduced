@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OEIS Constant Search</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600&display=swap">
+<style>
+/* Layout: one working column — constant input on top, data status beside it, transform table, then the hit list. */
+:root {
+  --bg: #f5f6f8;          /* page ground, slight blue bias */
+  --panel: #ffffff;
+  --ink: #1b2130;
+  --muted: #5d6679;
+  --line: #d9dde5;
+  --accent: #2b50a8;      /* ink blue, links and primary action */
+  --accent-soft: #e6ecf9;
+  --good: #1d7a4a; --good-soft: #e3f3ea;
+  --warn: #9a6200; --warn-soft: #fbf0db;
+  --bad: #a3302a;
+  --f-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12151c; --panel: #1a1e27; --ink: #e4e7ee; --muted: #9aa3b5; --line: #2e3442;
+  --accent: #8fb0ff; --accent-soft: #1f2a45; --good: #6fd29c; --good-soft: #17301f;
+  --warn: #f0bd5e; --warn-soft: #33290f; --bad: #ff8f86; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12151c; --panel: #1a1e27; --ink: #e4e7ee; --muted: #9aa3b5; --line: #2e3442;
+  --accent: #8fb0ff; --accent-soft: #1f2a45; --good: #6fd29c; --good-soft: #17301f;
+  --warn: #f0bd5e; --warn-soft: #33290f; --bad: #ff8f86; color-scheme: dark; }
+
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); margin: 0; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; display: grid; gap: 18px; }
+header h1 { font: 600 1.75rem/1.2 var(--f-display); margin: 0; text-wrap: balance; }
+header p { margin: 4px 0 0; color: var(--muted); max-width: 68ch; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 760px) { .top { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.panel h2 { font: 600 0.78rem/1 var(--f-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+
+.inrow { display: flex; gap: 8px; flex-wrap: wrap; }
+#constIn { flex: 1 1 16em; min-width: 0; font: 500 1.15rem var(--f-mono); padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+button { font: 500 0.95rem var(--f-body); border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 8px 14px; cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+button:disabled { opacity: 0.5; cursor: default; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.92rem; color: var(--muted); align-items: center; }
+.opts label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+#maxDig { width: 4.5em; font: 0.92rem var(--f-mono); padding: 3px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--ink); }
+.examples { font-size: 0.88rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.examples button { font: 0.85rem var(--f-mono); padding: 2px 8px; background: var(--bg); }
+
+.status { display: flex; gap: 10px; align-items: flex-start; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--warn); margin-top: 6px; flex: none; }
+.dot.ok { background: var(--good); }
+#dataState { font-size: 0.92rem; min-width: 0; }
+#dataState b { font-weight: 600; }
+.drop { border: 1.5px dashed var(--line); border-radius: 6px; padding: 12px; font-size: 0.9rem; color: var(--muted); display: grid; gap: 8px; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop input[type=file] { max-width: 100%; font-size: 0.85rem; }
+.small { font-size: 0.82rem; color: var(--muted); }
+#progress { font: 0.85rem var(--f-mono); color: var(--accent); }
+
+.tablebox { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th { text-align: left; font: 600 0.74rem var(--f-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.digits { font-family: var(--f-mono); word-break: break-all; }
+.digits .off { color: var(--warn); font-weight: 500; text-decoration: underline; }
+.skip { color: var(--muted); font-style: italic; }
+.chip { display: inline-block; font-size: 0.78rem; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.chip.exact { background: var(--good-soft); color: var(--good); }
+.chip.near { background: var(--warn-soft); color: var(--warn); }
+.chip.pos1 { background: var(--accent-soft); color: var(--accent); }
+.hitcount { font-variant-numeric: tabular-nums; }
+.hitcount.zero { color: var(--muted); }
+td.name { color: var(--muted); min-width: 16em; }
+#hitsHead { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; justify-content: space-between; }
+#hitsInfo { font-size: 0.9rem; color: var(--muted); }
+.err { color: var(--bad); font-size: 0.92rem; }
+details summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+details p, details li { font-size: 0.9rem; max-width: 72ch; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>OEIS Constant Search</h1>
+    <p>Finds a decimal constant in the OEIS even if it is stored only as 2c, c/3, c², √c, 1/c, πc, e·c, exp(c), log(c) or ⌈c⌉−c.
+      The search runs offline on your copy of the OEIS file <span class="mono">stripped</span>.</p>
+  </header>
+
+  <div class="top">
+    <section class="panel" aria-labelledby="h-const">
+      <h2 id="h-const">Constant</h2>
+      <form id="form" class="inrow" autocomplete="off">
+        <input id="constIn" inputmode="decimal" spellcheck="false" value="40.171073846375" aria-label="decimal constant">
+        <button id="goB" class="primary" type="submit">Search</button>
+      </form>
+      <div class="opts">
+        <label title="The last digit of the input and of OEIS entries may be rounded or truncated"><input id="tolCB" type="checkbox" checked> tolerate rounding</label>
+        <label><input id="startCB" type="checkbox"> only matches at the first term</label>
+        <label>use at most <input id="maxDig" type="number" min="5" max="60" placeholder="all"> digits</label>
+      </div>
+      <div class="examples">Examples:
+        <button type="button" data-c="20.085536923">20.085536923</button>
+        <button type="button" data-c="40.171073846375">40.171073846375</button>
+        <button type="button" data-c="0.5772156649015">0.5772156649015</button>
+        <button type="button" data-c="1.6180339887">1.6180339887</button>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-data">
+      <h2 id="h-data">OEIS data</h2>
+      <div class="status"><span id="dot" class="dot"></span><div id="dataState">No data loaded yet.</div></div>
+      <div id="drop" class="drop">
+        <div>Download <a href="https://oeis.org/stripped.gz" target="_blank" rel="noopener">stripped.gz</a> (required) and, for sequence names,
+          <a href="https://oeis.org/names.gz" target="_blank" rel="noopener">names.gz</a> from oeis.org, then select or drop them here.
+          Unpacked files work too.</div>
+        <input id="fileIn" type="file" multiple accept=".gz,.txt,application/gzip,text/plain">
+        <div id="progress" aria-live="polite"></div>
+      </div>
+      <div class="small" id="storeNote">The prepared index is kept in this browser, so you load the files only once per OEIS update.</div>
+      <div><button id="clearB" type="button" hidden>Forget stored data</button></div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-tr">
+    <h2 id="h-tr">Transformed values</h2>
+    <div id="prepMsg" class="small"></div>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Transform</th><th>Value</th><th class="num">Digits</th><th class="num">Hits</th><th>oeis.org</th></tr></thead>
+        <tbody id="trBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-hits">
+    <div id="hitsHead"><h2 id="h-hits">Matches</h2><span id="hitsInfo"></span></div>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Sequence</th><th>Transform</th><th>Match</th><th class="num">Term</th><th>Digits searched</th><th>Name</th></tr></thead>
+        <tbody id="hitBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <details>
+    <summary>How the search works</summary>
+    <ul>
+      <li>The number of significant digits you type sets the search length. Trailing zeros count.</li>
+      <li>Each transform is evaluated with 64-digit arithmetic. The first significant digits of the result are rounded to that length and searched in the leading single-digit terms (0–9) of every sequence in <span class="mono">stripped</span>, at any term position.</li>
+      <li>With “tolerate rounding”, the typed constant may be rounded or truncated in its last digit, and so may the OEIS entry. Each transform is evaluated at both ends of that uncertainty interval. All digit strings in the interval are searched, plus the next higher one, because some OEIS entries are rounded. If more than three strings would be needed, one digit fewer is compared. The Digits column shows how many digits were compared. Matches that differ from the value computed from the typed digits are marked “rounding”.</li>
+      <li>Without “tolerate rounding”, only the rounded value is searched. For exp(c), log(c) and ⌈c⌉−c the input error is amplified, so the search uses one digit fewer for each factor of 10 of the amplification.</li>
+      <li>A result like 3.0000000000 is shown as a simple value and not searched.</li>
+    </ul>
+    <p class="small">Port and extension of <a href="https://github.com/HugoPfoertner/OEIS-Search-GCD-reduced/blob/main/consts.f" target="_blank" rel="noopener">consts.f</a> by Hugo Pfoertner (Apache License 2.0).
+      Data: The OEIS Foundation, <a href="https://oeis.org/LICENSE" target="_blank" rel="noopener">OEIS End-User License</a>.</p>
+  </details>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// OEIS constant search - core (arbitrary precision arithmetic, transforms,
+// index of the file "stripped", search).  No dependencies, uses BigInt.
+// Port and extension of consts.f by Hugo Pfoertner (Apache License 2.0).
+// ---------------------------------------------------------------------------
+const CS = (() => {
+  "use strict";
+
+  // ------------------------------------------------ decimal floating point
+  // value = m * 10^e, m BigInt with at most P significant digits
+  const P = 64;               // significant digits of all results
+  const Q = P + 24;           // digits of fixed-point work in exp/ln/pi
+  const TEN = 10n;
+  const pow10 = (() => { const c = [1n]; return k => { while (c.length <= k) c.push(c[c.length - 1] * TEN); return c[k]; }; })();
+  const absB = a => (a < 0n ? -a : a);
+  const len = a => (a === 0n ? 0 : absB(a).toString().length);
+  function divRound(a, b) {                      // round half away from zero, b > 0
+    let q = a / b; const r = a - q * b;
+    if (2n * absB(r) >= b) q += (a < 0n ? -1n : 1n);
+    return q;
+  }
+  function bf(m, e) {
+    if (m === 0n) return { m: 0n, e: 0 };
+    const L = len(m);
+    if (L > P) { const k = L - P; m = divRound(m, pow10(k)); e += k; }
+    return { m, e };
+  }
+  function parse(str) {                         // "20.085536923", "-1.5e-3", ".25"
+    const s = String(str).trim().replace(/[\s_']/g, "");
+    const mt = /^([+-]?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/.exec(s);
+    if (!mt || (mt[2] + (mt[3] || "")) === "") return null;
+    const intp = mt[2] || "", frac = mt[3] || "";
+    const digits = (intp + frac).replace(/^0+/, "");
+    const exp = (mt[4] ? parseInt(mt[4], 10) : 0) - frac.length;
+    let m = BigInt(digits === "" ? "0" : digits);
+    if (mt[1] === "-") m = -m;
+    return { value: bf(m, exp), sigDigits: digits.length, hasPoint: mt[3] !== undefined };
+  }
+  const neg = x => ({ m: -x.m, e: x.e });
+  function add(x, y) {
+    if (x.m === 0n) return y; if (y.m === 0n) return x;
+    const e = Math.min(x.e, y.e);
+    // avoid huge shifts when magnitudes differ enormously
+    const ex = x.e + len(x.m), ey = y.e + len(y.m);
+    if (ex - ey > P + 5) return x; if (ey - ex > P + 5) return y;
+    return bf(x.m * pow10(x.e - e) + y.m * pow10(y.e - e), e);
+  }
+  const sub = (x, y) => add(x, neg(y));
+  const mul = (x, y) => bf(x.m * y.m, x.e + y.e);
+  function div(x, y) {
+    if (y.m === 0n) throw new Error("division by zero");
+    const k = P + len(y.m) + 2;
+    return bf(divRound(x.m * pow10(k), y.m), x.e - y.e - k);
+  }
+  const fromInt = n => bf(BigInt(n), 0);
+  function isqrt(n) {                            // floor(sqrt(n)), n >= 0
+    if (n < 2n) return n;
+    let x = BigInt("1" + "0".repeat(Math.ceil(n.toString().length / 2)));
+    for (;;) { const y = (x + n / x) >> 1n; if (y >= x) return x; x = y; }
+  }
+  function sqrt(x) {
+    if (x.m < 0n) throw new Error("sqrt of negative number");
+    if (x.m === 0n) return x;
+    let m = x.m, e = x.e;
+    let k = Math.max(0, 2 * P + 4 - len(m));
+    if ((e - k) % 2 !== 0) k++;
+    m *= pow10(k); e -= k;
+    return bf(isqrt(m), e / 2);
+  }
+  const cmp = (x, y) => { const d = sub(x, y).m; return d === 0n ? 0 : d < 0n ? -1 : 1; };
+  const toFixed = x => (x.e >= -Q ? x.m * pow10(x.e + Q) : divRound(x.m, pow10(-Q - x.e)));   // round(x*10^Q)
+  const fromFixed = (M, shift = 0) => bf(M, -Q + shift);
+  const ONE = pow10(Q);
+  const toNumber = x => Number(x.m) * Math.pow(10, x.e);
+  function floorB(x) {                           // floor as BigInt
+    if (x.e >= 0) return x.m * pow10(x.e);
+    const d = pow10(-x.e); let q = x.m / d;
+    if (x.m < 0n && q * d !== x.m) q -= 1n;
+    return q;
+  }
+
+  // constants (fixed point with Q digits)
+  function atanInv(k) {                          // atan(1/k) * 10^Q
+    const K = BigInt(k), K2 = K * K;
+    let t = ONE / K, s = t, n = 1n, sg = -1n;
+    while (t !== 0n) { t /= K2; const term = t / (2n * n + 1n); s += sg * term; sg = -sg; n++; if (term === 0n) break; }
+    return s;
+  }
+  const PI_F = 16n * atanInv(5) - 4n * atanInv(239);
+  function expFixed(R) {                         // exp(R/10^Q) * 10^Q, |R| <= ~1.2*10^Q
+    const H = 12;
+    const r = R / (1n << BigInt(H));
+    let s = ONE, t = ONE, n = 1n;
+    for (;;) { t = t * r / ONE / n; if (t === 0n) break; s += t; n++; }
+    for (let i = 0; i < H; i++) s = s * s / ONE;
+    return s;
+  }
+  function lnFrac(F) {                           // ln(F/10^Q) * 10^Q for F/10^Q in [0.1, 1]
+    let x = F; const H = 6;
+    for (let i = 0; i < H; i++) x = isqrt(x * ONE);
+    const y = (x - ONE) * ONE / (x + ONE), y2 = y * y / ONE;
+    let s = y, t = y, n = 1n;
+    for (;;) { t = t * y2 / ONE; const term = t / (2n * n + 1n); if (term === 0n) break; s += term; n++; }
+    return s * 2n * (1n << BigInt(H));
+  }
+  const LN10_F = -lnFrac(ONE / 10n);
+  const E_F = expFixed(ONE);
+  const PI = fromFixed(PI_F), E = fromFixed(E_F), LN10 = fromFixed(LN10_F);
+
+  function ln(x) {
+    if (x.m <= 0n) throw new Error("log of non-positive number");
+    const L = len(x.m);
+    const F = x.m * pow10(Q) / pow10(L);           // f = m/10^L in [0.1,1)
+    const k = L + x.e;                              // x = f * 10^k
+    return fromFixed(lnFrac(F) + BigInt(k) * LN10_F);
+  }
+  function exp(x) {
+    const xn = toNumber(x);
+    if (!(Math.abs(xn) < 1e7)) throw new Error("exp argument too large");
+    const n = Math.round(xn / Math.LN10);
+    const r = sub(x, mul(fromInt(n), LN10));
+    return fromFixed(expFixed(toFixed(r)), n);
+  }
+
+  // leading significant digits of |x|: rounded and truncated, as strings
+  function sigDigits(x, nd) {
+    const m = absB(x.m), L = len(m);
+    let N, T;
+    if (L >= nd) { const d = pow10(L - nd); T = m / d; N = divRound(m, d); }
+    else { N = T = m * pow10(nd - L); }
+    const out = { rounded: N.toString(), truncated: T.toString(), minus: (N - 1n).toString(), plus: (N + 1n).toString() };
+    for (const k of Object.keys(out)) if (out[k].length !== nd) out[k] = null;   // carry/borrow changed length
+    if (out.rounded === null) out.rounded = N.toString().slice(0, nd);          // 9.99..95 -> 1000..
+    return out;
+  }
+  function toDecimalString(x, nd) {               // human readable, nd significant digits
+    if (x.m === 0n) return "0";
+    const m = absB(x.m), L = len(m);
+    let N = L >= nd ? divRound(m, pow10(L - nd)) : m * pow10(nd - L);
+    let ex = x.e + L - 1;                          // decimal exponent of leading digit
+    let ds = N.toString();
+    if (ds.length > nd) { ds = ds.slice(0, nd); ex++; }
+    const sg = x.m < 0n ? "-" : "";
+    if (ex >= -6 && ex < Math.max(nd, 7)) {
+      if (ex >= 0) {
+        if (ds.length <= ex + 1) return sg + ds + "0".repeat(ex + 1 - ds.length);
+        return sg + ds.slice(0, ex + 1) + "." + ds.slice(ex + 1);
+      }
+      return sg + "0." + "0".repeat(-ex - 1) + ds;
+    }
+    return sg + ds[0] + "." + ds.slice(1) + "e" + ex;
+  }
+
+  // ------------------------------------------------ transformations
+  // cond: condition number (relative error amplification), used to reduce
+  // the number of digits that are compared for ill-conditioned transforms
+  const ceilMinus = c => { const f = floorB(c); const cf = bf(f, 0); const ce = cmp(cf, c) === 0 ? cf : add(cf, fromInt(1)); return sub(ce, c); };
+  const TRANSFORMS = [
+    { id: "c",      label: "c",           f: c => c,                 cond: () => 1 },
+    { id: "2c",     label: "2*c",         f: c => mul(fromInt(2), c), cond: () => 1 },
+    { id: "c/2",    label: "c/2",         f: c => div(c, fromInt(2)), cond: () => 1 },
+    { id: "3c",     label: "3*c",         f: c => mul(fromInt(3), c), cond: () => 1 },
+    { id: "c/3",    label: "c/3",         f: c => div(c, fromInt(3)), cond: () => 1 },
+    { id: "c^2",    label: "c^2",         f: c => mul(c, c),          cond: () => 2 },
+    { id: "sqrt",   label: "c^(1/2)",     f: c => sqrt(c),            cond: () => 0.5 },
+    { id: "1/c",    label: "1/c",         f: c => div(fromInt(1), c), cond: () => 1 },
+    { id: "pi*c",   label: "Pi*c",        f: c => mul(PI, c),         cond: () => 1 },
+    { id: "e*c",    label: "e*c",         f: c => mul(E, c),          cond: () => 1 },
+    { id: "exp",    label: "exp(c)",      f: c => exp(c),             cond: c => Math.abs(toNumber(c)) },
+    { id: "log",    label: "log(c)",      f: c => ln(c),              cond: c => { const l = Math.abs(Math.log(toNumber(c))); return l > 0 ? 1 / l : Infinity; } },
+    { id: "ceil-c", label: "ceil(c)-c",   f: c => ceilMinus(c),       cond: c => { const v = toNumber(c), d = Math.abs(Math.ceil(v) - v); return d > 0 ? Math.abs(v) / d : Infinity; } },
+  ];
+
+  // Compute all transformed values and the digit strings to be searched.
+  //   input: string;  opts.maxDigits (optional cap), opts.minDigits (default 5)
+  // k leading digits of |x|, truncated, as BigInt
+  function truncK(x, k) { return BigInt(sigDigits(x, k).truncated || sigDigits(x, k).rounded); }
+  const expOf = x => len(x.m) + x.e - 1;              // decimal exponent of the leading digit
+  // all k-digit prefixes of numbers in [lo, hi] (lo <= hi, both > 0)
+  function prefixRange(lo, hi, k) {
+    const a = truncK(lo, k), b = truncK(hi, k), top = pow10(k) - 1n, bottom = pow10(k - 1);
+    const out = [];
+    const push = (x, y) => { for (let v = x; v <= y && out.length <= 20; v++) out.push(v); };
+    if (expOf(lo) === expOf(hi)) push(a, b); else { push(a, top); push(bottom, b); }
+    return out;
+  }
+
+  // Compute all transformed values and the digit strings to be searched.
+  //   opts.tolerance: the input may be rounded or truncated in its last digit
+  //     (true value in [c - u/2, c + u], u = unit of the last digit).  Every
+  //     transform is evaluated at both ends; the number of compared digits is
+  //     reduced until at most 3 digit strings cover the interval.  The next
+  //     higher string is added, because OEIS entries are occasionally rounded.
+  //   opts.maxDigits: cap on digits;  opts.minDigits (default 5)
+  function prepare(input, opts = {}) {
+    const p = parse(input);
+    if (!p) throw new Error("not a decimal number: " + input);
+    if (p.value.m === 0n) throw new Error("the constant must not be zero");
+    let nsig = p.sigDigits;
+    let c = p.value;
+    if (opts.maxDigits && opts.maxDigits < nsig) {         // use fewer digits: truncate the input
+      nsig = opts.maxDigits;
+      const L = len(c.m), cut = L - nsig;
+      c = { m: c.m / pow10(cut), e: c.e + cut };
+    }
+    const minDigits = opts.minDigits || 5;
+    const u = { m: 1n, e: c.e + (len(c.m) - nsig) };        // unit of the last used digit
+    const cLo = sub(c, div(u, fromInt(2))), cHi = add(c, u);
+    const rows = [];
+    for (const t of TRANSFORMS) {
+      const row = { id: t.id, label: t.label, ok: false };
+      try {
+        const v = t.f(c);
+        if (v.m === 0n) throw new Error("result is zero");
+        row.value = v;
+        let nd, pats;
+        if (opts.tolerance) {
+          let a = t.f(cLo), b = t.f(cHi);
+          if (a.m === 0n || b.m === 0n || (a.m < 0n) !== (b.m < 0n) || (a.m < 0n) !== (v.m < 0n)) throw new Error("ill-conditioned");
+          if (t.id === "ceil-c" && floorB(cLo) !== floorB(cHi)) throw new Error("ill-conditioned");
+          a = { m: absB(a.m), e: a.e }; b = { m: absB(b.m), e: b.e };
+          if (cmp(a, b) > 0) [a, b] = [b, a];
+          nd = Math.min(nsig, P - 4);
+          let range = prefixRange(a, b, nd);
+          while (range.length > 3 && nd > minDigits) { nd--; range = prefixRange(a, b, nd); }
+          if (range.length > 3) throw new Error("only " + nd + " reliable digits");
+          const dg = sigDigits(v, nd);
+          const exact = new Set([dg.rounded, dg.truncated].filter(Boolean));
+          const strs = range.map(x => x.toString());
+          const hiPlus = (range[range.length - 1] + 1n).toString();
+          if (hiPlus.length === nd && !strs.includes(hiPlus)) strs.push(hiPlus);
+          pats = strs.map(s => ({ pat: s, kind: exact.has(s) ? "exact" : "tolerance" }));
+          row.lost = nsig - nd;
+        } else {
+          const cond = t.cond(c);
+          if (!isFinite(cond)) throw new Error("ill-conditioned");
+          row.lost = cond > 1 ? Math.floor(Math.log10(cond)) : 0;
+          nd = nsig - row.lost;
+          if (nd < minDigits) throw new Error("only " + Math.max(nd, 0) + " reliable digits");
+          pats = [{ pat: sigDigits(v, nd).rounded, kind: "exact" }];
+        }
+        row.nd = nd;
+        row.display = toDecimalString(v, Math.max(nd, 1));
+        row.digits = sigDigits(v, nd);
+        // a result like 3.0000000000 or 0.49999999 is a simple number:
+        // report it instead of searching a trivial digit pattern
+        const tail = /(0+|9+)$/.exec(row.digits.rounded);
+        if (tail && tail[0].length >= Math.max(4, Math.ceil(nd / 2))) {
+          row.simple = toDecimalString(v, Math.max(1, nd - tail[0].length));
+          throw new Error("simple value");
+        }
+        row.patterns = pats;
+        row.ok = true;
+      } catch (err) { row.error = err.message; }
+      rows.push(row);
+    }
+    return { nsig, inputSig: p.sigDigits, tolerance: !!opts.tolerance, rows };
+  }
+
+  // ------------------------------------------------ index of "stripped"
+  // Only the leading run of single-digit terms (0..9) of each sequence is
+  // relevant, as in consts.f.  Index: one string with the digit runs of all
+  // sequences separated by "|", plus the A-numbers and start offsets.
+  function buildIndex(text, minRun = 5) {
+    const runs = [], anums = [];
+    let modified = "";
+    const hm = /Last Modified:\s*([^\n]*)/.exec(text.slice(0, 2000));
+    if (hm) modified = hm[1].trim();
+    let i = 0; const n = text.length;
+    while (i < n) {
+      let j = text.indexOf("\n", i); if (j < 0) j = n;
+      if (text.charCodeAt(i) === 65) {                  // 'A'
+        const k = text.indexOf(",", i);
+        if (k > 0 && k < j) {
+          let q = k + 1, run = "";
+          // single digit followed by comma
+          while (q + 1 < j + 1) {
+            const ch = text.charCodeAt(q);
+            if (ch >= 48 && ch <= 57 && text.charCodeAt(q + 1) === 44) { run += text[q]; q += 2; }
+            else break;
+          }
+          if (run.length >= minRun) { runs.push(run); anums.push(parseInt(text.substring(i + 1, k), 10)); }
+        }
+      }
+      i = j + 1;
+    }
+    return makeIndex(runs, anums, modified);
+  }
+  function makeIndex(runs, anums, modified) {
+    const starts = new Int32Array(runs.length);
+    let pos = 0;
+    for (let k = 0; k < runs.length; k++) { starts[k] = pos; pos += runs[k].length + 1; }
+    return { D: runs.join("|"), starts, anums: Int32Array.from(anums), modified, count: runs.length };
+  }
+  function seqAt(idx, pos) {                         // binary search: sequence containing pos
+    let lo = 0, hi = idx.starts.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (idx.starts[mid] <= pos) lo = mid; else hi = mid - 1; }
+    return lo;
+  }
+  function findAll(idx, s, limit) {
+    const res = []; let from = 0;
+    for (;;) {
+      const p = idx.D.indexOf(s, from);
+      if (p < 0) break;
+      const k = seqAt(idx, p);
+      res.push({ anum: idx.anums[k], pos: p - idx.starts[k] + 1 });
+      if (res.length >= limit) break;
+      from = p + 1;
+    }
+    return res;
+  }
+
+  // search all prepared digit strings; returns list of hits
+  //   opts.tolerance: also search last digit +-1;  opts.startOnly: only matches at term 1
+  function search(idx, prep, opts = {}) {
+    const limit = opts.limitPerPattern || 500;
+    const hits = [], seen = new Map();
+    prep.rows.forEach((row, ti) => {
+      if (!row.ok) return;
+      const pats = row.patterns.map(x => [x.pat, x.kind]);
+      for (const [pat, kind] of pats) {
+        const found = findAll(idx, pat, limit);
+        if (found.length >= limit) row.truncatedHits = true;
+        for (const h of found) {
+          if (opts.startOnly && h.pos !== 1) continue;
+          const key = h.anum + "|" + ti;
+          const prev = seen.get(key);
+          if (prev && (prev.kind === "exact" || kind !== "exact") && prev.pos <= h.pos) continue;
+          const hit = { transform: row.label, ti, digits: pat, kind, anum: h.anum, pos: h.pos, nd: row.nd };
+          if (prev) Object.assign(prev, hit); else { seen.set(key, hit); hits.push(hit); }
+        }
+      }
+    });
+    hits.sort((a, b) => (a.kind === "exact" ? 0 : 1) - (b.kind === "exact" ? 0 : 1) || (a.pos === 1 ? 0 : 1) - (b.pos === 1 ? 0 : 1) || a.ti - b.ti || a.anum - b.anum);
+    return hits;
+  }
+
+  const aStr = n => "A" + String(n).padStart(6, "0");
+  return { parse, prepare, buildIndex, makeIndex, search, aStr, toDecimalString, TRANSFORMS,
+           _: { PI, E, LN10, exp, ln, sqrt, mul, div, add, sub, fromInt, sigDigits, bf } };
+})();
+if (typeof module !== "undefined") module.exports = CS;
+
+</script>
+<script>
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  let IDX = null;        // { D, starts, anums, modified, count, names: Map|null }
+  let lastPrep = null;
+
+  // ------------------------------------------------ persistence (IndexedDB)
+  const DB = "oeis-constant-search", STORE = "data";
+  function idb() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open(DB, 1);
+      r.onupgradeneeded = () => r.result.createObjectStore(STORE);
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+  }
+  async function idbPut(key, val) {
+    try { const db = await idb(); await new Promise((res, rej) => { const tx = db.transaction(STORE, "readwrite"); tx.objectStore(STORE).put(val, key); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); return true; }
+    catch (e) { return false; }
+  }
+  async function idbGet(key) {
+    try { const db = await idb(); return await new Promise((res, rej) => { const r = db.transaction(STORE).objectStore(STORE).get(key); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+    catch (e) { return undefined; }
+  }
+  async function idbClear() {
+    try { const db = await idb(); await new Promise(res => { const tx = db.transaction(STORE, "readwrite"); tx.objectStore(STORE).clear(); tx.oncomplete = res; tx.onerror = res; }); } catch (e) { /* ignore */ }
+  }
+
+  // ------------------------------------------------ loading files
+  async function readText(file) {
+    const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+    if (head[0] === 0x1f && head[1] === 0x8b) {
+      if (typeof DecompressionStream === "undefined") throw new Error("This browser cannot unpack .gz files. Please unpack the file first.");
+      return await new Response(file.stream().pipeThrough(new DecompressionStream("gzip"))).text();
+    }
+    return await file.text();
+  }
+  const tick = () => new Promise(r => setTimeout(r, 0));
+  function parseNames(text, wanted) {
+    const names = new Map();
+    let i = 0; const n = text.length;
+    while (i < n) {
+      let j = text.indexOf("\n", i); if (j < 0) j = n;
+      if (text.charCodeAt(i) === 65) {
+        const sp = text.indexOf(" ", i);
+        if (sp > 0 && sp < j) { const a = parseInt(text.substring(i + 1, sp), 10); if (wanted.has(a)) names.set(a, text.substring(sp + 1, j)); }
+      }
+      i = j + 1;
+    }
+    return names;
+  }
+  async function loadFiles(files) {
+    const prog = $("progress");
+    let strippedText = null, namesText = null;
+    try {
+      for (const f of files) {
+        prog.textContent = "Reading " + f.name + " …"; await tick();
+        const t = await readText(f);
+        const head = t.slice(0, 300);
+        if (/Sequence Names/i.test(head)) namesText = t;
+        else if (/Sequence Data/i.test(head) || /^A\d{6} ,/m.test(t.slice(0, 2000))) strippedText = t;
+        else if (/^A\d{6} /m.test(t.slice(0, 2000))) namesText = t;
+        else throw new Error(f.name + " is neither stripped nor names.");
+      }
+      if (strippedText) {
+        prog.textContent = "Building index …"; await tick();
+        const idx = CS.buildIndex(strippedText);
+        strippedText = null;
+        idx.names = IDX && IDX.names && IDX.modified === idx.modified ? IDX.names : null;
+        IDX = idx;
+      }
+      if (namesText) {
+        if (!IDX) throw new Error("Please load stripped.gz together with or before names.gz.");
+        prog.textContent = "Reading names …"; await tick();
+        IDX.names = parseNames(namesText, new Set(IDX.anums));
+      }
+      prog.textContent = "Saving index in this browser …"; await tick();
+      const saved = await idbPut("index", { D: IDX.D, starts: IDX.starts, anums: IDX.anums, modified: IDX.modified, count: IDX.count, names: IDX.names ? Array.from(IDX.names) : null });
+      prog.textContent = saved ? "" : "Loaded. (This browser did not allow storing the index; you will need to load the files again next time.)";
+      showData(); run();
+    } catch (e) {
+      prog.textContent = "";
+      $("dataState").innerHTML = '<span class="err"></span>';
+      $("dataState").firstChild.textContent = "Could not load: " + (e.message || e);
+    }
+  }
+  function showData() {
+    const st = $("dataState"), dot = $("dot");
+    if (!IDX) { dot.className = "dot"; st.textContent = "No data loaded yet."; $("clearB").hidden = true; return; }
+    dot.className = "dot ok";
+    st.innerHTML = "";
+    const b = document.createElement("b"); b.textContent = IDX.count.toLocaleString("en-US") + " sequences";
+    st.append(b, " with at least 5 leading digit terms");
+    if (IDX.modified) st.append(document.createElement("br"), "stripped: " + IDX.modified);
+    st.append(document.createElement("br"), IDX.names ? "names loaded" : "names not loaded (optional)");
+    $("clearB").hidden = false;
+  }
+
+  // ------------------------------------------------ search and output
+  const oeisSearchUrl = s => "https://oeis.org/search?q=" + encodeURIComponent(s) + "&go=Search";
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function run() {
+    const input = $("constIn").value.trim();
+    const maxD = parseInt($("maxDig").value, 10);
+    const tb = $("trBody"), hb = $("hitBody");
+    tb.innerHTML = ""; hb.innerHTML = ""; $("prepMsg").textContent = ""; $("hitsInfo").textContent = "";
+    if (!input) return;
+    let prep;
+    try { prep = CS.prepare(input, { maxDigits: maxD > 0 ? maxD : undefined, tolerance: $("tolCB").checked }); }
+    catch (e) { $("prepMsg").innerHTML = '<span class="err"></span>'; $("prepMsg").firstChild.textContent = e.message; return; }
+    lastPrep = prep;
+    $("prepMsg").textContent = prep.nsig + " significant digits" + (prep.nsig < prep.inputSig ? " used (of " + prep.inputSig + " given)" : "") + (prep.nsig < 8 ? ". Few digits give many random matches." : "");
+
+    const opts = { tolerance: $("tolCB").checked, startOnly: $("startCB").checked };
+    const hits = IDX ? CS.search(IDX, prep, opts) : [];
+    const perT = new Map();
+    for (const h of hits) perT.set(h.ti, (perT.get(h.ti) || 0) + 1);
+
+    prep.rows.forEach((r, ti) => {
+      const tr = el("tr");
+      tr.append(el("td", "mono", r.label));
+      const v = el("td", "digits");
+      if (r.display !== undefined) v.textContent = r.display; else v.append(el("span", "skip", r.error));
+      tr.append(v);
+      tr.append(el("td", "num mono", r.nd != null && r.nd > 0 ? String(r.nd) + (r.lost ? " (−" + r.lost + ")" : "") : "–"));
+      const hc = el("td", "num");
+      if (r.ok) { const k = perT.get(ti) || 0; hc.append(el("span", "hitcount" + (k ? "" : " zero"), IDX ? String(k) + (r.truncatedHits ? "+" : "") : "–")); }
+      else hc.append(el("span", "skip", r.simple ? "simple value " + r.simple : r.error));
+      tr.append(hc);
+      const lk = el("td");
+      if (r.ok) { const a = el("a", null, "search"); a.href = oeisSearchUrl(r.display); a.target = "_blank"; a.rel = "noopener"; lk.append(a); }
+      tr.append(lk);
+      tb.append(tr);
+    });
+
+    if (!IDX) { $("hitsInfo").textContent = "Load the OEIS data to search."; return; }
+    const ex = hits.filter(h => h.kind === "exact").length;
+    $("hitsInfo").textContent = hits.length ? hits.length + (hits.length === 1 ? " match (" : " matches (") + ex + " exact, " + (hits.length - ex) + " within rounding)" : "No match.";
+    const MAXROWS = 400;
+    for (const h of hits.slice(0, MAXROWS)) {
+      const tr = el("tr");
+      const tdA = el("td", "mono"); const a = el("a", null, CS.aStr(h.anum)); a.href = "https://oeis.org/" + CS.aStr(h.anum); a.target = "_blank"; a.rel = "noopener"; tdA.append(a); tr.append(tdA);
+      tr.append(el("td", "mono", h.transform));
+      const m = el("td"); m.append(el("span", "chip " + (h.kind === "exact" ? "exact" : "near"), h.kind === "exact" ? "exact" : "rounding")); tr.append(m);
+      const p = el("td", "num"); if (h.pos === 1) p.append(el("span", "chip pos1", "1")); else p.textContent = String(h.pos); tr.append(p);
+      const d = el("td", "digits");
+      d.textContent = h.digits;
+      tr.append(d);
+      tr.append(el("td", "name", IDX.names ? (IDX.names.get(h.anum) || "") : ""));
+      hb.append(tr);
+    }
+    if (hits.length > MAXROWS) { const tr = el("tr"); const td = el("td", "small", "… " + (hits.length - MAXROWS) + " more not shown. Use more digits or “only matches at the first term”."); td.colSpan = 6; tr.append(td); hb.append(tr); }
+  }
+
+  // ------------------------------------------------ wiring
+  $("form").addEventListener("submit", e => { e.preventDefault(); run(); });
+  for (const id of ["tolCB", "startCB"]) $(id).addEventListener("change", run);
+  $("maxDig").addEventListener("change", run);
+  document.querySelectorAll(".examples button").forEach(b => b.addEventListener("click", () => { $("constIn").value = b.dataset.c; run(); }));
+  $("fileIn").addEventListener("change", e => { if (e.target.files.length) loadFiles(Array.from(e.target.files)); });
+  const drop = $("drop");
+  ["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => { if (e.dataTransfer.files.length) loadFiles(Array.from(e.dataTransfer.files)); });
+  $("clearB").addEventListener("click", async () => { await idbClear(); IDX = null; showData(); run(); });
+
+  (async () => {
+    run();                                   // transform table works without data
+    const s = await idbGet("index");
+    if (s && s.D) {
+      IDX = { D: s.D, starts: s.starts, anums: s.anums, modified: s.modified, count: s.count, names: s.names ? new Map(s.names) : null };
+      showData(); run();
+    }
+  })();
+})();
+</script>
+
+</body>
+</html>
